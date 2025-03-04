@@ -1144,9 +1144,9 @@ Tagify.prototype = {
             tagsDataSet = [];
 
         s = s.split(mixTagsInterpolator[0]).map((s1, i) => {
-            var s2 = s1.split(mixTagsInterpolator[1]),
-                preInterpolated = s2[0],
-                maxTagsReached = tagsDataSet.length == maxTags,
+            let [preInterpolated, ...restParts] = s1.split(mixTagsInterpolator[1]),
+                remainder = restParts.join(mixTagsInterpolator[1]),
+                maxTagsReached = tagsDataSet.length === maxTags,
                 textProp,
                 tagData,
                 tagElm;
@@ -1161,9 +1161,8 @@ Tagify.prototype = {
             }
 
             transformTag.call(this, tagData)
-
             if( !maxTagsReached   &&
-                s2.length > 1   &&
+                preInterpolated.length > 1   &&
                 (!enforceWhitelist || this.isTagWhitelisted(tagData.value))   &&
                 !(!duplicates && this.isTagDuplicate(tagData.value)) ){
 
@@ -1175,13 +1174,15 @@ Tagify.prototype = {
                 tagsDataSet.push( tagData )
                 tagElm.classList.add(this.settings.classNames.tagNoAnimation)
 
-                s2[0] = tagElm.outerHTML //+ "&#8288;"  // put a zero-space at the end so the caret won't jump back to the start (when the last input's child element is a tag)
+                const tagSplit = tagData.value.split(mixTagsInterpolator[0])
+
+                preInterpolated = "&#8288;" + tagElm.outerHTML + "&#8288;"  // put a zero-space at the end so the caret won't jump back to the start (when the last input's child element is a tag)
                 this.value.push(tagData)
             }
             else if(s1)
-                return i ? mixTagsInterpolator[0] + s1 : s1
+                return i ? escapeHTML(mixTagsInterpolator[0] + s1) : s1
 
-            return s2.join('')
+            return preInterpolated + remainder
         }).join('')
 
         this.DOM.input.innerHTML = s
@@ -1532,7 +1533,7 @@ Tagify.prototype = {
             insertBeforeNode = DOM.input;
 
         //if( insertBeforeNode === DOM.input )
-            DOM.scope.insertBefore(tagElm, insertBeforeNode)
+        DOM.scope.insertBefore(tagElm, insertBeforeNode)
         //else
         //    DOM.scope.appendChild(tagElm)
     },
