@@ -129,7 +129,7 @@ function js(done){
 }
 
 function esm(done){
-    if( opts.dev ) return done();
+    // if( opts.dev ) return done();
 
     return bundle({
         entry: 'src/tagify.js',
