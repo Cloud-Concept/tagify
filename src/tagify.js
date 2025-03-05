@@ -1174,8 +1174,6 @@ Tagify.prototype = {
                 tagsDataSet.push( tagData )
                 tagElm.classList.add(this.settings.classNames.tagNoAnimation)
 
-                const tagSplit = tagData.value.split(mixTagsInterpolator[0])
-
                 preInterpolated = "&#8288;" + tagElm.outerHTML + "&#8288;"  // put a zero-space at the end so the caret won't jump back to the start (when the last input's child element is a tag)
                 this.value.push(tagData)
             }
