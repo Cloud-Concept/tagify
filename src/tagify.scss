@@ -754,16 +754,16 @@
                 }
             }
 
-            &--selected{
-                &::before{
-                    content: "✓"; // checkmark
-                    font-family: monospace;
-                    position: absolute;
-                    inset-inline-start: 6px;
-                    text-indent: 0;
-                    line-height: 1.1;
-                }
-            }
+            //&--selected{
+            //    &::before{
+            //        content: "✓"; // checkmark
+            //        font-family: monospace;
+            //        position: absolute;
+            //        inset-inline-start: 6px;
+            //        text-indent: 0;
+            //        line-height: 1.1;
+            //    }
+            //}
         }
 
         &:has(.tagify__dropdown__item--selected) .tagify__dropdown__item {
