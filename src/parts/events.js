@@ -613,9 +613,11 @@ export default {
 
             // check if tags were "magically" added/removed (browser redo/undo or CTRL-A -> delete)
             if( tagsElems.length != lastTagsCount ){
+                // Synchronize the internal state with the DOM.
                 this.value = [].map.call(this.getTagElms(), node => getSetTagData(node))
                 this.update({ withoutChangeEvent:true })
-                return
+                // Instead of returning, reassign lastTagsCount to continue suggestion processing.
+                lastTagsCount = tagsElems.length;
             }
 
             if( this.hasMaxTags() )
