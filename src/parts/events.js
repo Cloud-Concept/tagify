@@ -149,7 +149,7 @@ export default {
             var _s = this.settings,
                 nodeTag = isWithinNodeTag.call(this, e.relatedTarget),
                 targetIsTagNode = isNodeTag.call(this, e.relatedTarget),
-                isTargetXBtn = e.target.classList.contains(_s.classNames.tagX),
+                isTargetXBtn = e.target.classList.contains(_s.classNames.tagX) || (e.relatedTarget && e.relatedTarget.classList.contains(_s.classNames.tagX)),
                 isFocused = e.type == 'focusin',
                 lostFocus = e.type == 'focusout';
 
