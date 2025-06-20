@@ -42,7 +42,8 @@ export default {
         var _s = this.settings,
             firstListItem,
             firstListItemValue,
-            allowNewTags = _s.mode == 'mix' && !_s.enforceWhitelist,
+            // allowNewTags = _s.mode == 'mix' && !_s.enforceWhitelist,
+            allowNewTags = false, // Make it false because we are not going to allow new tags
             noWhitelist =  !_s.whitelist || !_s.whitelist.length,
             noMatchListItem,
             isManual = _s.dropdown.position == 'manual';

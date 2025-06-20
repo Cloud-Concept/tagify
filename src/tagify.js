@@ -1161,10 +1161,14 @@ Tagify.prototype = {
             }
 
             transformTag.call(this, tagData)
+
+            const isCustomPlaceholder = /^<<[^<>]+>>$/.test(tagData.value);
+            console.log("[tagify]:", {s, s1, preInterpolated, tagData, isCustomPlaceholder, enforceWhitelist})
+
             if( !maxTagsReached   &&
                 preInterpolated.length > 1   &&
-                (!enforceWhitelist || this.isTagWhitelisted(tagData.value))   &&
-                !(!duplicates && this.isTagDuplicate(tagData.value)) ){
+                (!enforceWhitelist || this.isTagWhitelisted(tagData.value)) &&
+                !(!duplicates && this.isTagDuplicate(tagData.value)) && isCustomPlaceholder){
 
                 // in case "tagTextProp" setting is set to other than "value" and this tag does not have this prop
                 textProp = tagData[tagTextProp] ? tagTextProp : 'value'
