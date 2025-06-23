@@ -1,4 +1,22 @@
-import { sameStr, removeCollectionProp, omit, isObject, parseHTML, removeTextChildNodes, escapeHTML, extend, concatWithoutDups, getUID, isNodeTag, injectAtCaret, placeCaretAfterNode, getSetTagData, fixCaretBetweenTags, logger } from './parts/helpers'
+import {
+    sameStr,
+    removeCollectionProp,
+    omit,
+    isObject,
+    parseHTML,
+    removeTextChildNodes,
+    escapeHTML,
+    extend,
+    concatWithoutDups,
+    getUID,
+    isNodeTag,
+    injectAtCaret,
+    placeCaretAfterNode,
+    getSetTagData,
+    fixCaretBetweenTags,
+    logger,
+    unescapeHtml
+} from './parts/helpers'
 import DEFAULTS from './parts/defaults'
 import _dropdown, { initDropdown } from './parts/dropdown'
 import { getPersistedData, setPersistedData, clearPersistedData } from './parts/persist'
@@ -1139,65 +1157,104 @@ Tagify.prototype = {
      * https://stackoverflow.com/a/57598892/104380
      * @param {String} s
      */
-    parseMixTags( s ){
+    parseMixTags(s) {
         var {mixTagsInterpolator, duplicates, transformTag, enforceWhitelist, maxTags, tagTextProp} = this.settings,
             tagsDataSet = [];
 
-        s = s.split(mixTagsInterpolator[0]).map((s1, i) => {
-            let [preInterpolated, ...restParts] = s1.split(mixTagsInterpolator[1]),
-                remainder = restParts.join(mixTagsInterpolator[1]),
-                maxTagsReached = tagsDataSet.length === maxTags,
-                textProp,
-                tagData,
-                tagElm;
+        // Create proper regex pattern from the interpolator delimiters
+        const escapeRegExp = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const openDelim = escapeRegExp(mixTagsInterpolator[0]);
+        const closeDelim = escapeRegExp(mixTagsInterpolator[1]);
+        const tagPattern = new RegExp(`${openDelim}(.*?)${closeDelim}`, 'g');
 
-            try{
-                // skip numbers and go straight to the "catch" statement
-                if( preInterpolated == +preInterpolated )
-                    throw Error
-                tagData = JSON.parse(preInterpolated)
-            } catch(err){
-                tagData = this.normalizeTags(preInterpolated)[0] || {value:preInterpolated}
+        // Check if there's a complete pattern match
+        const hasCompleteMatch = s.match(tagPattern);
+
+        // If no complete match found, just set the content directly
+        if (!hasCompleteMatch) {
+            this.DOM.input.innerText = unescapeHtml(s);
+            this.DOM.input.appendChild(document.createTextNode(''));
+            this.DOM.input.normalize();
+            console.log('parseMixTags: textContent: hasCompleteMatch', {hasCompleteMatch, s, escaped: escapeHTML(s), result, input: this.DOM.input});
+            return s;
+        }
+
+        // Extract all full tag matches (complete with delimiters)
+        const tagMatches = [...s.matchAll(tagPattern)];
+        let lastIndex = 0;
+        let result = '';
+
+        // Process each tag match
+        for (let i = 0; i < tagMatches.length; i++) {
+            const match = tagMatches[i];
+            const fullMatch = match[0]; // The full match including delimiters
+            const preInterpolated = match[1]; // What's between the delimiters
+            const matchIndex = match.index;
+
+            // Add text before this tag
+            if (matchIndex > lastIndex) {
+                result += escapeHTML(s.substring(lastIndex, matchIndex));
             }
 
-            transformTag.call(this, tagData)
+            // Process the tag content
+            const maxTagsReached = tagsDataSet.length === maxTags;
+            let textProp, tagData, tagElm;
 
-            const isCustomPlaceholder = /^<<[^<>]+>>$/.test(tagData.value);
-            console.log("[tagify]:", {s, s1, preInterpolated, tagData, isCustomPlaceholder, enforceWhitelist})
+            try {
+                // skip numbers and go straight to the "catch" statement
+                if (preInterpolated == +preInterpolated)
+                    throw Error;
+                tagData = JSON.parse(preInterpolated);
+            } catch(err) {
+                tagData = this.normalizeTags(preInterpolated)[0] || {value: preInterpolated};
+            }
 
-            if( !maxTagsReached   &&
-                preInterpolated.length > 1   &&
+            transformTag.call(this, tagData);
+
+            console.log('parseMixTags: tagData isChip', {tagData: {...tagData}});
+            if (!maxTagsReached &&
+                preInterpolated.length > 1 &&
                 (!enforceWhitelist || this.isTagWhitelisted(tagData.value)) &&
-                !(!duplicates && this.isTagDuplicate(tagData.value)) && isCustomPlaceholder){
+                !(!duplicates && this.isTagDuplicate(tagData.value)) &&
+                (tagData.__isChip != null && tagData.__isChip)
+            ) {
 
                 // in case "tagTextProp" setting is set to other than "value" and this tag does not have this prop
-                textProp = tagData[tagTextProp] ? tagTextProp : 'value'
-                tagData[textProp] = this.trim(tagData[textProp])
+                textProp = tagData[tagTextProp] ? tagTextProp : 'value';
+                tagData[textProp] = this.trim(tagData[textProp]);
 
-                tagElm = this.createTagElem(tagData)
-                tagsDataSet.push( tagData )
-                tagElm.classList.add(this.settings.classNames.tagNoAnimation)
+                tagElm = this.createTagElem(tagData);
+                tagsDataSet.push(tagData);
+                tagElm.classList.add(this.settings.classNames.tagNoAnimation);
 
-                preInterpolated = "&#8288;" + tagElm.outerHTML + "&#8288;"  // put a zero-space at the end so the caret won't jump back to the start (when the last input's child element is a tag)
-                this.value.push(tagData)
+                // Add the HTML tag element
+                result += "&#8288;" + tagElm.outerHTML + "&#8288;";  // put a zero-space at the end so the caret won't jump back to the start
+                this.value.push(tagData);
+            } else {
+                // If tag wasn't created, just add the original text with delimiters
+                result += fullMatch;
             }
-            else if(s1)
-                return i ? escapeHTML(mixTagsInterpolator[0] + s1) : s1
 
-            return preInterpolated + remainder
-        }).join('')
+            lastIndex = matchIndex + fullMatch.length;
+        }
 
-        this.DOM.input.innerHTML = s
-        this.DOM.input.appendChild(document.createTextNode(''))
-        this.DOM.input.normalize()
+        // Add any remaining text after the last tag
+        if (lastIndex < s.length) {
+            result += escapeHTML(s.substring(lastIndex));
+        }
 
-        var tagNodes = this.getTagElms()
+        // Directly modify the DOM input
+        this.DOM.input.innerHTML = result;
+        this.DOM.input.appendChild(document.createTextNode(''));
+        this.DOM.input.normalize();
+        console.log('parseMixTags: innerHTML', {result, input: this.DOM.input});
 
-        tagNodes.forEach((elm, idx) => getSetTagData(elm,  tagsDataSet[idx]))
-        this.update({withoutChangeEvent:true})
+        var tagNodes = this.getTagElms();
+        tagNodes.forEach((elm, idx) => getSetTagData(elm, tagsDataSet[idx]));
+        this.update({withoutChangeEvent: true});
 
-        fixCaretBetweenTags(tagNodes, this.state.hasFocus)
-        return s
+        fixCaretBetweenTags(tagNodes, this.state.hasFocus);
+        return s;
     },
 
     /**

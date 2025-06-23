@@ -60,6 +60,12 @@ export function parseHTML( s ){
     return node.body.firstElementChild;
 }
 
+export function unescapeHtml(str) {
+    var div = document.createElement('div');
+    div.innerHTML = str;
+    return div.textContent || div.innerText || '';
+}
+
 /**
  * Removed new lines and irrelevant spaces which might affect layout, and are better gone
  * @param {string} s [HTML string]
