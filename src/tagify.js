@@ -1172,7 +1172,7 @@ Tagify.prototype = {
 
         // If no complete match found, just set the content directly
         if (!hasCompleteMatch) {
-            this.DOM.input.innerText = unescapeHtml(s);
+            this.DOM.input.innerText = s;
             this.DOM.input.appendChild(document.createTextNode(''));
             this.DOM.input.normalize();
             console.log('parseMixTags: textContent: hasCompleteMatch', {hasCompleteMatch, s, escaped: escapeHTML(s), result, input: this.DOM.input});
@@ -1232,7 +1232,7 @@ Tagify.prototype = {
                 this.value.push(tagData);
             } else {
                 // If tag wasn't created, just add the original text with delimiters
-                result += fullMatch;
+                result += escapeHTML(fullMatch);
             }
 
             lastIndex = matchIndex + fullMatch.length;
