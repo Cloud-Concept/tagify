@@ -819,6 +819,10 @@ export default {
 
                         if( this.settings.mode == 'mix' ){
                             this.events.callbacks.onMixTagsInput.call(this, e);
+
+                            if (this.settings.pasteAsTags) {
+                                tagsElems = this.addTags(this.state.inputText + result, true)
+                            }
                         }
 
                         else if( this.settings.pasteAsTags ){
