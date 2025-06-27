@@ -1790,9 +1790,9 @@ Tagify.prototype = {
         opts = opts || {}
         this.value = []
 
-        if( this.settings.mode == 'mix' )
-            this.DOM.input.innerHTML = ''
-        else
+        if( this.settings.mode != 'mix' )
+        //     this.DOM.input.innerHTML = ''
+        // else
             this.removeTagsFromDOM()
 
         this.dropdown.refilter()
