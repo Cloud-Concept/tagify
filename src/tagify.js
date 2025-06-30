@@ -1158,84 +1158,97 @@ Tagify.prototype = {
      * @param {String} s
      */
     parseMixTags(s) {
-        var {mixTagsInterpolator, duplicates, transformTag, enforceWhitelist, maxTags, tagTextProp} = this.settings,
-            tagsDataSet = [];
+        const {mixTagsInterpolator, duplicates, transformTag, enforceWhitelist, maxTags, tagTextProp} = this.settings;
+        const tagsDataSet = [];
 
         // Create proper regex pattern from the interpolator delimiters
         const escapeRegExp = str => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const openDelim = escapeRegExp(mixTagsInterpolator[0]);
         const closeDelim = escapeRegExp(mixTagsInterpolator[1]);
-        const tagPattern = new RegExp(`${openDelim}(.*?)${closeDelim}`, 'g');
 
-        // Check if there's a complete pattern match
-        const hasCompleteMatch = s.match(tagPattern);
+        // Use a non-greedy match and ensure we have a balanced pair of delimiters
+        // This helps avoid incorrect matching of nested delimiters
+        const tagPattern = new RegExp(`${openDelim}((?:(?!${openDelim}|${closeDelim}).)*?)${closeDelim}`, 'g');
 
-        // If no complete match found, just set the content directly
-        if (!hasCompleteMatch) {
-            this.DOM.input.innerText = s;
-            this.DOM.input.appendChild(document.createTextNode(''));
-            this.DOM.input.normalize();
-            console.log('parseMixTags: textContent: hasCompleteMatch', {hasCompleteMatch, s, escaped: escapeHTML(s), result, input: this.DOM.input});
-            return s;
-        }
+        // Process the input and validate all potential tag matches
+        let matches = [];
+        let match;
 
-        // Extract all full tag matches (complete with delimiters)
-        const tagMatches = [...s.matchAll(tagPattern)];
-        let lastIndex = 0;
-        let result = '';
+        // First, find all potential matches
+        while ((match = tagPattern.exec(s)) !== null) {
+            const fullMatch = match[0];
+            const innerContent = match[1];
+            const position = match.index;
 
-        // Process each tag match
-        for (let i = 0; i < tagMatches.length; i++) {
-            const match = tagMatches[i];
-            const fullMatch = match[0]; // The full match including delimiters
-            const preInterpolated = match[1]; // What's between the delimiters
-            const matchIndex = match.index;
-
-            // Add text before this tag
-            if (matchIndex > lastIndex) {
-                result += escapeHTML(s.substring(lastIndex, matchIndex));
-            }
-
-            // Process the tag content
-            const maxTagsReached = tagsDataSet.length === maxTags;
-            let textProp, tagData, tagElm;
+            // Try to determine if this is a valid tag or just text that happens to have delimiters
+            let isValidTag = false;
+            let tagData;
 
             try {
-                // skip numbers and go straight to the "catch" statement
-                if (preInterpolated == +preInterpolated)
-                    throw Error;
-                tagData = JSON.parse(preInterpolated);
+                // Check if it's a JSON object
+                if (innerContent.trim().startsWith('{') && innerContent.trim().endsWith('}')) {
+                    tagData = JSON.parse(innerContent);
+                    isValidTag = true;
+                } else {
+                    // For non-JSON content, check if it's a valid tag value
+                    tagData = this.normalizeTags(innerContent)[0] || {value: innerContent};
+                    transformTag.call(this, tagData);
+                    isValidTag = true;
+                }
             } catch(err) {
-                tagData = this.normalizeTags(preInterpolated)[0] || {value: preInterpolated};
+                // If parsing fails, it's probably just text with delimiters
+                isValidTag = false;
             }
 
-            transformTag.call(this, tagData);
+            matches.push({
+                fullMatch,
+                innerContent,
+                position,
+                isValidTag,
+                tagData: isValidTag ? tagData : null
+            });
+        }
 
-            console.log('parseMixTags: tagData isChip', {tagData: {...tagData}});
+        // Now process the input string incrementally
+        let result = '';
+        let lastIndex = 0;
+
+        for (const match of matches) {
+            if (!match.isValidTag) {
+                // If not a valid tag, treat as regular text
+                continue;
+            }
+
+            // Add text before this tag
+            if (match.position > lastIndex) {
+                result += escapeHTML(s.substring(lastIndex, match.position));
+            }
+
+            const maxTagsReached = tagsDataSet.length === maxTags;
+            const tagData = match.tagData;
+
             if (!maxTagsReached &&
-                preInterpolated.length > 1 &&
-                (!enforceWhitelist || this.isTagWhitelisted(tagData.value)) &&
+                match.innerContent.length > 0 &&
                 !(!duplicates && this.isTagDuplicate(tagData.value)) &&
-                (tagData.__isChip != null && tagData.__isChip)
-            ) {
+                (!enforceWhitelist || this.isTagWhitelisted(tagData.value))) {
 
-                // in case "tagTextProp" setting is set to other than "value" and this tag does not have this prop
-                textProp = tagData[tagTextProp] ? tagTextProp : 'value';
+                // Valid tag processing
+                const textProp = tagData[tagTextProp] ? tagTextProp : 'value';
                 tagData[textProp] = this.trim(tagData[textProp]);
 
-                tagElm = this.createTagElem(tagData);
+                const tagElm = this.createTagElem(tagData);
                 tagsDataSet.push(tagData);
                 tagElm.classList.add(this.settings.classNames.tagNoAnimation);
 
                 // Add the HTML tag element
-                result += "&#8288;" + tagElm.outerHTML + "&#8288;";  // put a zero-space at the end so the caret won't jump back to the start
+                result += "&#8288;" + tagElm.outerHTML + "&#8288;";  // zero-width spaces to help with caret positioning
                 this.value.push(tagData);
             } else {
                 // If tag wasn't created, just add the original text with delimiters
-                result += escapeHTML(fullMatch);
+                result += escapeHTML(match.fullMatch);
             }
 
-            lastIndex = matchIndex + fullMatch.length;
+            lastIndex = match.position + match.fullMatch.length;
         }
 
         // Add any remaining text after the last tag
@@ -1243,13 +1256,12 @@ Tagify.prototype = {
             result += escapeHTML(s.substring(lastIndex));
         }
 
-        // Directly modify the DOM input
+        // Update the DOM
         this.DOM.input.innerHTML = result;
         this.DOM.input.appendChild(document.createTextNode(''));
         this.DOM.input.normalize();
-        console.log('parseMixTags: innerHTML', {result, input: this.DOM.input});
 
-        var tagNodes = this.getTagElms();
+        const tagNodes = this.getTagElms();
         tagNodes.forEach((elm, idx) => getSetTagData(elm, tagsDataSet[idx]));
         this.update({withoutChangeEvent: true});
 
