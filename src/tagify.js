@@ -1230,7 +1230,7 @@ Tagify.prototype = {
             if (!maxTagsReached &&
                 match.innerContent.length > 0 &&
                 !(!duplicates && this.isTagDuplicate(tagData.value)) &&
-                (!enforceWhitelist || this.isTagWhitelisted(tagData.value))) {
+                (!enforceWhitelist || this.isTagWhitelisted(tagData.value)) && (tagData.__isChip != null && tagData.__isChip)) {
 
                 // Valid tag processing
                 const textProp = tagData[tagTextProp] ? tagTextProp : 'value';
